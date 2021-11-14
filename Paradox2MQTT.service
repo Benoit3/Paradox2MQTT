@@ -1,0 +1,14 @@
+[Unit]
+Description=Paradox2MQTT
+After=multi-user.target
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3  /home/pi/Paradox2MQTT/Paradox2MQTT.py
+WorkingDirectory=/home/pi/Paradox2MQTT
+StandardOutput=inherit
+StandardError=inherit
+User=pi
+ 
+Restart=always
+[Install]
+WantedBy=multi-user.target
