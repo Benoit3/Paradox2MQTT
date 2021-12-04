@@ -63,7 +63,8 @@ class User:
 			self.logger.warning('update User : '+str(self.id)+' failed');
 			
 			#release lock and return True as reply parsing is OK
-			self.lock.release();
+			if (self.lock.locked()):
+				self.lock.release();
 			return True;
 			
 		elif (matchUserLabelRequestReply and ((int)(matchUserLabelRequestReply.groups()[0])==self.id)):

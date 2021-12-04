@@ -107,11 +107,12 @@ class Area:
 		if (not self.lock.acquire(True,2.0)):
 			self.logger.warning('Lock timeout expired. Continue');
 		
+		#send label request to PRT3.
+		self.prt3.send("AL{0:0>3}".format(self.id));
+		
 		#refresh status
 		self.requestRefreshStatus();
 			
-		#send label request to PRT3.
-		self.prt3.send("AL{0:0>3}".format(self.id));
 
 	def requestRefreshStatus(self):
 		#send status request to PRT3.
@@ -129,7 +130,8 @@ class Area:
 		if (matchAreaFailedReply and ((int)(matchAreaFailedReply.groups()[0])==self.id)):
 			self.logger.warning('update Area : '+str(self.id)+' failed');
 			#release lock and return True as reply parsing is OK
-			self.lock.release();
+			if (self.lock.locked()):
+				self.lock.release();
 			return True;
 			
 		#if status reply with id correct

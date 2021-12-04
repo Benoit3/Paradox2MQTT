@@ -93,12 +93,13 @@ class Zone:
 		#lock aquisition to avoid to process two commands in parallel
 		if (not self.lock.acquire(True,2.0)):
 			self.logger.warning('Lock timeout expired. Continue');
+
+		#send label request to PRT3.
+		self.prt3.send("ZL{0:0>3}".format(self.id));
 			
 		#send status request to PRT3.
 		self.requestRefreshStatus();
 
-		#send label request to PRT3.
-		self.prt3.send("ZL{0:0>3}".format(self.id));
 
 	def requestRefreshStatus(self):
 		#send status request to PRT3.
@@ -116,6 +117,10 @@ class Zone:
 		if (matchZoneFailedReply and ((int)(matchZoneFailedReply.groups()[0])==self.id)):
 			self.logger.warning('update Zone : '+str(self.id)+' failed');
 			
+			#release lock and return True as reply parsing is OK
+			if (self.lock.locked()):
+				self.lock.release();
+				
 			#return True as reply parsing is OK
 			return True;
 			
