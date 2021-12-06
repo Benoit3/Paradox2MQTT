@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import threading
 import re
 
 from enum import Enum
@@ -15,14 +16,12 @@ class AreaArmStatus(Enum):
     INSTANTARMED = "I"
 	
 class Area:
-	lock=None;
 	prt3=None;
 	logger=None;
 	onChangeCallback=None;
 
 	@classmethod
-	def initAreaList(cls,area,lock,prt3):
-		cls.lock=lock;
+	def initAreaList(cls,area,prt3):
 		cls.prt3=prt3;
 		cls.logger=logging.getLogger('Area');
 		
@@ -101,19 +100,22 @@ class Area:
 		self.trouble=False;
 		self._ready=False;
 		self._alarm=False;
+		self.initReady=threading.Event();
 		
 	def requestInit(self):
-		#lock aquisition to avoid to process two commands in parallel
-		if (not self.lock.acquire(True,2.0)):
-			self.logger.warning('Lock timeout expired. Continue');
-		
 		#send label request to PRT3.
-		self.prt3.send("AL{0:0>3}".format(self.id));
+		self.requestRefreshLabel();
 		
 		#refresh status
 		self.requestRefreshStatus();
+		
+		#wait for init
+		self.initReady.wait(2.0);
 			
-
+	def requestRefreshLabel(self):
+		#send label request to PRT3.
+		self.prt3.send("AL{0:0>3}".format(self.id));
+		
 	def requestRefreshStatus(self):
 		#send status request to PRT3.
 		self.prt3.send("RA{0:0>3}".format(self.id));
@@ -129,9 +131,6 @@ class Area:
 		#if label reply with failed info
 		if (matchAreaFailedReply and ((int)(matchAreaFailedReply.groups()[0])==self.id)):
 			self.logger.warning('update Area : '+str(self.id)+' failed');
-			#release lock and return True as reply parsing is OK
-			if (self.lock.locked()):
-				self.lock.release();
 			return True;
 			
 		#if status reply with id correct
@@ -149,7 +148,9 @@ class Area:
 			if (self.onChangeCallback != None):
 				self.onChangeCallback();
 			
-			#return True as reply parsing is OK
+			#return True as name and status are defined
+			if (self.name!=''):
+				self.initReady.set();
 			return True;
 			
 		#if label reply with id correct
@@ -158,10 +159,6 @@ class Area:
 			
 			self.logger.info('update area : '+str(self.id)+' Label: '+str(self.name));
 			print('update area : '+str(self.id)+' Label: '+str(self.name));
-			
-			#release lock and return True as reply parsing is OK
-			if (self.lock.locked()):
-				self.lock.release();
 			return True;
 
 		#in case of no match

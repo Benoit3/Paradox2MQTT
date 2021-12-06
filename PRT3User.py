@@ -2,28 +2,25 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import threading
 import re
 
 from enum import Enum
 
 class User:
-	lock=None;
 	area=None;
 	prt3=None;
 	logger=None;
 	
 	@classmethod
-	def initUserList(cls,user,lock,prt3):
-		cls.lock=lock;
+	def initUserList(cls,user,prt3):
 		cls.prt3=prt3;
 		cls.logger=logging.getLogger('User');
 		
 		for i,val in enumerate(user):
-			#there's not user 0
-			if (i!=0):
-				#initialisation
-				user[i]=User(i+1);
-				user[i].requestInit();			
+			#initialisation
+			user[i]=User(i+1);
+			user[i].requestInit();			
 		
 	@classmethod
 	def processPRT3Reply(cls,user,line):
@@ -43,14 +40,14 @@ class User:
 		self.logger.debug('create User: '+str(index));
 		self.id=index;
 		self.name='';
+		self.initReady=threading.Event();
 		
 	def requestInit(self):
-		#lock aquisition to avoid to process two commands in parallel
-		if (not self.lock.acquire(True,2.0)):
-			self.logger.warning('Lock timeout expired. Continue');
-
 		#send label request to PRT3. Callback should be called before function return
 		self.prt3.send("UL{0:0>3}".format(self.id));
+		
+		#wait for init
+		self.initReady.wait(2.0);
 
 	def updateFromPRT3(self,answer):
 		RE_REQUEST_USER_LABEL_REPLY = re.compile(r"UL(\d\d\d)(.{0,16})");
@@ -61,10 +58,6 @@ class User:
 		#if user reply with failed info
 		if (matchUserFailedReply and ((int)(matchUserFailedReply.groups()[0])==self.id)):
 			self.logger.warning('update User : '+str(self.id)+' failed');
-			
-			#release lock and return True as reply parsing is OK
-			if (self.lock.locked()):
-				self.lock.release();
 			return True;
 			
 		elif (matchUserLabelRequestReply and ((int)(matchUserLabelRequestReply.groups()[0])==self.id)):
@@ -73,8 +66,8 @@ class User:
 			print('update User : '+str(self.id)+' Label: '+self.name);
 			
 			#release lock and return True as reply parsing is OK
-			if (self.lock.locked()):
-				self.lock.release();
+			if (self.name!=''):
+				self.initReady.set();
 			return True;				
 			
 			#in case of no match

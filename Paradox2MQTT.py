@@ -27,18 +27,14 @@ class ParadoxPanel:
 		#connection to the panel
 		self.prt3=PRT3.PRT3(serialPort,baudrate,self.processMessage);
 				
-		#lock initialisation
-		#this lock will be use to wait for previous answer before sending a new command
-		self.lock=threading.Lock();		
-		
 		#init Areas
-		PRT3Area.Area.initAreaList(self.area,self.lock,self.prt3);
+		PRT3Area.Area.initAreaList(self.area,self.prt3);
 
 		#init Zones
-		PRT3Zone.Zone.initZoneList(self.zone,self.lock,self.prt3);
+		PRT3Zone.Zone.initZoneList(self.zone,self.prt3);
 
 		#init Users
-		PRT3User.User.initUserList(self.user,self.lock,self.prt3);
+		PRT3User.User.initUserList(self.user,self.prt3);
 		
 		#init Utility Keys
 		self.utilityKey=PRT3UtilityKey.UtilityKey(self.prt3);
@@ -151,6 +147,8 @@ if __name__ == '__main__':
 	while run:
 		#check every 10s that all threads are living
 		time.sleep(10);
+		panel.area[0].requestRefreshLabel();
+		
 		#if not
 		if (threading.active_count()!=3):
 			#disconnect from mqtt server

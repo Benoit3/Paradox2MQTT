@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import threading
 import re
 
 from enum import Enum
@@ -13,14 +14,12 @@ class ZoneStatus(Enum):
 		FIRELOOP = "F"
 
 class Zone:
-	lock=None;
 	prt3=None;
 	logger=None;
 	onChangeCallback=None;
 	
 	@classmethod
-	def initZoneList(cls,zone,lock,prt3):
-		cls.lock=lock;
+	def initZoneList(cls,zone,prt3):
 		cls.prt3=prt3;
 		cls.logger=logging.getLogger('Zone');
 		
@@ -50,6 +49,7 @@ class Zone:
 		self._status=ZoneStatus.OPEN;
 		self._alarm=False;
 		self._fireAlarm=False;
+		self.initReady=threading.Event();
 		
 	def log(self):
 			txt='update zone : '+str(self.id)+' '+str(self.name)+' Status: '+str(self.status.name)+' Alarm: '+str(self.alarm)+' FireAlarm: '+str(self.fireAlarm);
@@ -90,16 +90,14 @@ class Zone:
 			print('update zone : '+str(self.id)+' '+str(self.name)+' Status: '+str(self.status.name)+' Alarm: '+str(self.alarm)+' FireAlarm: '+str(self.fireAlarm));
 		
 	def requestInit(self):
-		#lock aquisition to avoid to process two commands in parallel
-		if (not self.lock.acquire(True,2.0)):
-			self.logger.warning('Lock timeout expired. Continue');
-
 		#send label request to PRT3.
 		self.prt3.send("ZL{0:0>3}".format(self.id));
 			
 		#send status request to PRT3.
 		self.requestRefreshStatus();
-
+		
+		#wait for init
+		self.initReady.wait(2.0);
 
 	def requestRefreshStatus(self):
 		#send status request to PRT3.
@@ -116,10 +114,6 @@ class Zone:
 		#if zone reply with failed info
 		if (matchZoneFailedReply and ((int)(matchZoneFailedReply.groups()[0])==self.id)):
 			self.logger.warning('update Zone : '+str(self.id)+' failed');
-			
-			#release lock and return True as reply parsing is OK
-			if (self.lock.locked()):
-				self.lock.release();
 				
 			#return True as reply parsing is OK
 			return True;
@@ -137,7 +131,9 @@ class Zone:
 			if (self.onChangeCallback != None):
 				self.onChangeCallback();
 						
-			#lock and return True as reply parsing is OK
+			#set Event and return True as reply parsing is OK
+			if (self.name!=''):
+				self.initReady.set();
 			return True;
 			
 		#if label reply with id correct
@@ -145,11 +141,6 @@ class Zone:
 			self.name=matchZoneLabelRequestReply.groups()[1].rstrip();
 			self.logger.info('update zone : '+str(self.id)+' Label: '+str(self.name));
 			print('update zone : '+str(self.id)+' Label: '+str(self.name));
-						
-			
-			#release lock and return True as reply parsing is OK
-			if (self.lock.locked()):
-				self.lock.release();
 			return True;
 		
 		#in case of no match
