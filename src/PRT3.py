@@ -3,7 +3,6 @@
 import threading
 import logging
 import serial.threaded
-import traceback
 
 
 class PRT3:
@@ -39,7 +38,7 @@ class PRT3:
 				try:
 					outer.onReceive(line);
 				except BaseException as exc:
-					outer.logger.error(traceback.format_exc())
+					outer.logger.exception(exc)
 
 				
 			def connection_made(self, transport):
