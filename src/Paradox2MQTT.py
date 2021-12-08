@@ -3,6 +3,7 @@
 
 import threading,traceback
 import configparser
+import itertools
 import logging, logging.config
 import PRT3,PRT3Event,PRT3Zone,PRT3Area,PRT3User,PRT3UtilityKey
 import paho.mqtt.client as mqtt
@@ -143,28 +144,33 @@ if __name__ == '__main__':
 	client.message_callback_add(mqttTopicRoot+'/UK/+',utilityKey)
 	client.loop_start()
 	
+	#start loop
 	run=True;
 	while run:
-		#check every 10s that all threads are living
-		panel.area[0].requestRefresh();
-		time.sleep(10);
-		if not panel.area[0].statusAvailable:
-			logger.warning('Communication seems hang up');
+		#and iterate on panel items
+		for item in itertools.chain(panel.area,panel.zone,panel.user):
+			
+			#check every 10s that all threads are living
+			item.requestRefresh();
+			time.sleep(10);
+			if not item.statusAvailable:
+				logger.warning('Communication seems hang up');
 		
-		#if not
-		if (threading.active_count()!=3):
-			#logging
-			logger.critical(str(threading.active_count())+' thread(s) are living');
-			#disconnect from mqtt server
-			logger.critical('Disonnecting from MQTT broker');
-			client.disconnect();
-			client.loop_stop();
-			
-			#disconnect from pr3t interface
-			logger.critical('Closing serial port');
-			panel.prt3.port.close();
-			
-			run=False;
+			#if not
+			if (threading.active_count()!=3):
+				#logging
+				logger.critical(str(threading.active_count())+' thread(s) are living');
+				#disconnect from mqtt server
+				logger.critical('Disonnecting from MQTT broker');
+				client.disconnect();
+				client.loop_stop();
+				
+				#disconnect from pr3t interface
+				logger.critical('Closing serial port');
+				panel.prt3.port.close();
+				
+				run=False;
+				break;
 			
 			
 
