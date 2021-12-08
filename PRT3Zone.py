@@ -26,7 +26,7 @@ class Zone:
 		for i,val in enumerate(zone):
 			#initialisation
 			zone[i]=Zone(i+1);
-			zone[i].requestInit();	
+			zone[i].requestRefresh();	
 		
 	@classmethod
 	def processPRT3Reply(cls,zone,line):
@@ -41,15 +41,7 @@ class Zone:
 		else:
 			return False;
 	
-	def __init__(self,index):
-		self.logger = logging.getLogger(__name__)
-		self.logger.debug('create Zone: '+str(index));
-		self.id=index;
-		self.name='';
-		self._status=ZoneStatus.OPEN;
-		self._alarm=False;
-		self._fireAlarm=False;
-		self.initReady=threading.Event();
+
 		
 	def log(self):
 			txt='update zone : '+str(self.id)+' '+str(self.name)+' Status: '+str(self.status.name)+' Alarm: '+str(self.alarm)+' FireAlarm: '+str(self.fireAlarm);
@@ -88,18 +80,38 @@ class Zone:
 			self._fireAlarm=x;
 			self.logger.info('update zone : '+str(self.id)+' '+str(self.name)+' Status: '+str(self.status.name)+' Alarm: '+str(self.alarm)+' FireAlarm: '+str(self.fireAlarm));
 			print('update zone : '+str(self.id)+' '+str(self.name)+' Status: '+str(self.status.name)+' Alarm: '+str(self.alarm)+' FireAlarm: '+str(self.fireAlarm));
+
+	def timeout(self):
+		self.logger.error('Zone '+str(self.id)+' answer timeout');
+		self.statusAvailable=False;
 		
-	def requestInit(self):
+	def __init__(self,index):
+		self.logger = logging.getLogger(__name__)
+		self.logger.debug('create Zone: '+str(index));
+		self.id=index;
+		self.name='';
+		self._status=ZoneStatus.OPEN;
+		self._alarm=False;
+		self._fireAlarm=False;
+		self.refreshTimer=None;
+		self.statusAvailable=False;	
+				
+	def requestRefresh(self):
 		#send label request to PRT3.
 		self.prt3.send("ZL{0:0>3}".format(self.id));
 			
 		#send status request to PRT3.
 		self.requestRefreshStatus();
 		
-		#wait for init
-		self.initReady.wait(2.0);
+		#wait for timer expiration or cancelation
+		self.refreshTimer.join();
 
 	def requestRefreshStatus(self):
+		#(re)arm timer if not already running
+		if (self.refreshTimer is None) or (not self.refreshTimer.is_alive()):
+			self.refreshTimer=threading.Timer(2.0,self.timeout);
+			self.refreshTimer.start();
+			
 		#send status request to PRT3.
 		self.prt3.send("RZ{0:0>3}".format(self.id));		
 
@@ -120,6 +132,10 @@ class Zone:
 			
 		#if status reply with id correct
 		elif (matchZoneStatusRequestReply and ((int)(matchZoneStatusRequestReply.groups()[0])==self.id) ):
+			
+			#cancel waiting timer
+			self.refreshTimer.cancel();
+						
 			#update of status
 			self.status=ZoneStatus(matchZoneStatusRequestReply.groups()[1]);
 			
@@ -130,10 +146,10 @@ class Zone:
 			#onchange callback call
 			if (self.onChangeCallback != None):
 				self.onChangeCallback();
-						
-			#set Event and return True as reply parsing is OK
-			if (self.name!=''):
-				self.initReady.set();
+							
+			#flag status as availvale
+			self.statusAvailable=True;
+			
 			return True;
 			
 		#if label reply with id correct

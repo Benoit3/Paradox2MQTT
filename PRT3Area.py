@@ -14,7 +14,7 @@ class AreaArmStatus(Enum):
     FORCEARMED = "F"
     STAYARMED = "S"
     INSTANTARMED = "I"
-	
+
 class Area:
 	prt3=None;
 	logger=None;
@@ -28,7 +28,7 @@ class Area:
 		for i,val in enumerate(area):
 			#initialisation
 			area[i]=Area(i+1);
-			area[i].requestInit();	
+			area[i].requestRefresh();	
 		
 	@classmethod
 	def processPRT3Reply(cls,area,line):
@@ -89,7 +89,9 @@ class Area:
 			self._alarm=x;
 			self.stateLog();
 	
-
+	def timeout(self):
+		self.logger.error('Area '+str(self.id)+' answer timeout');
+		self.statusAvailable=False;
 	
 	def __init__(self,index):
 		self.logger.debug('create Area: '+str(index));
@@ -100,23 +102,24 @@ class Area:
 		self.trouble=False;
 		self._ready=False;
 		self._alarm=False;
-		self.initReady=threading.Event();
-		
-	def requestInit(self):
-		#send label request to PRT3.
-		self.requestRefreshLabel();
-		
-		#refresh status
-		self.requestRefreshStatus();
-		
-		#wait for init
-		self.initReady.wait(2.0);
+		self.refreshTimer=None;
+		self.statusAvailable=False;
+	
 			
-	def requestRefreshLabel(self):
+	def requestRefresh(self):
 		#send label request to PRT3.
 		self.prt3.send("AL{0:0>3}".format(self.id));
+		self.requestRefreshStatus();
+		
+		#wait for timer expiration or cancelation
+		self.refreshTimer.join();
 		
 	def requestRefreshStatus(self):
+		#(re)arm timer if not already running
+		if (self.refreshTimer is None) or (not self.refreshTimer.is_alive()):
+			self.refreshTimer=threading.Timer(2.0,self.timeout);
+			self.refreshTimer.start();
+		
 		#send status request to PRT3.
 		self.prt3.send("RA{0:0>3}".format(self.id));
 		
@@ -135,6 +138,10 @@ class Area:
 			
 		#if status reply with id correct
 		elif (matchAreaStatusRequestReply and ((int)(matchAreaStatusRequestReply.groups()[0])==self.id) ):
+			
+			#cancel waiting timer
+			self.refreshTimer.cancel();
+			
 			#update of Arm status
 			self.status=AreaArmStatus(matchAreaStatusRequestReply.groups()[1]);
 			
@@ -147,10 +154,10 @@ class Area:
 			#onchange callback call
 			if (self.onChangeCallback != None):
 				self.onChangeCallback();
+				
+			#flag status as availvale
+			self.statusAvailable=True;
 			
-			#return True as name and status are defined
-			if (self.name!=''):
-				self.initReady.set();
 			return True;
 			
 		#if label reply with id correct

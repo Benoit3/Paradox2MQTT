@@ -146,18 +146,22 @@ if __name__ == '__main__':
 	run=True;
 	while run:
 		#check every 10s that all threads are living
+		panel.area[0].requestRefresh();
 		time.sleep(10);
-		panel.area[0].requestRefreshLabel();
+		if not panel.area[0].statusAvailable:
+			logger.warning('Communication seems hang up');
 		
 		#if not
 		if (threading.active_count()!=3):
+			#logging
+			logger.critical(str(threading.active_count())+' thread(s) are living');
 			#disconnect from mqtt server
-			logger.info('Disonnecting from MQTT broker');
+			logger.critical('Disonnecting from MQTT broker');
 			client.disconnect();
 			client.loop_stop();
 			
 			#disconnect from pr3t interface
-			logger.info('Closing serial port');
+			logger.critical('Closing serial port');
 			panel.prt3.port.close();
 			
 			run=False;

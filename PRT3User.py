@@ -20,7 +20,7 @@ class User:
 		for i,val in enumerate(user):
 			#initialisation
 			user[i]=User(i+1);
-			user[i].requestInit();			
+			user[i].requestRefresh();			
 		
 	@classmethod
 	def processPRT3Reply(cls,user,line):
@@ -35,19 +35,28 @@ class User:
 		else:
 			return False;
 
-	
+	def timeout(self):
+		self.logger.error('User '+str(self.id)+' answer timeout');
+		self.statusAvailable=False;
+			
 	def __init__(self,index):
 		self.logger.debug('create User: '+str(index));
 		self.id=index;
 		self.name='';
-		self.initReady=threading.Event();
+		self.refreshTimer=None;
+		self.statusAvailable=False;
 		
-	def requestInit(self):
+	def requestRefresh(self):
+		#(re)arm timer if not already running
+		if (self.refreshTimer is None) or (not self.refreshTimer.is_alive()):
+			self.refreshTimer=threading.Timer(2.0,self.timeout);
+			self.refreshTimer.start();
+			
 		#send label request to PRT3. Callback should be called before function return
 		self.prt3.send("UL{0:0>3}".format(self.id));
 		
-		#wait for init
-		self.initReady.wait(2.0);
+		#wait for timer expiration or cancelation
+		self.refreshTimer.join();
 
 	def updateFromPRT3(self,answer):
 		RE_REQUEST_USER_LABEL_REPLY = re.compile(r"UL(\d\d\d)(.{0,16})");
@@ -60,14 +69,17 @@ class User:
 			self.logger.warning('update User : '+str(self.id)+' failed');
 			return True;
 			
-		elif (matchUserLabelRequestReply and ((int)(matchUserLabelRequestReply.groups()[0])==self.id)):
+		elif (matchUserLabelRequestReply and ((int)(matchUserLabelRequestReply.groups()[0])==self.id)):		
+			#cancel waiting timer
+			self.refreshTimer.cancel();
+			
 			self.name=matchUserLabelRequestReply.groups()[1].rstrip();
 			self.logger.info('update User : '+str(self.id)+' Label: '+self.name);
 			print('update User : '+str(self.id)+' Label: '+self.name);
 			
-			#release lock and return True as reply parsing is OK
-			if (self.name!=''):
-				self.initReady.set();
+			#flag status as available
+			self.statusAvailable=True;
+			
 			return True;				
 			
 			#in case of no match
