@@ -1,7 +1,7 @@
 ﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import threading,traceback
+import threading,signal
 import configparser
 import itertools
 import logging, logging.config
@@ -98,8 +98,9 @@ def utilityKey(client, userdata, message):
 			if ( 0<UkId and UkId <251) :
 				#activate requested Utility Key
 				panel.utilityKey.activate(UkId);
+				
 	except BaseException as exc:
-		logger.error(traceback.format_exc());
+		logger.exception(exc);
 
 def areaPublish(self):
 	value={'id':self.id,'name':self.name,'status':str(self.status.value),'memory':self.memory,'trouble':self.trouble,'ready':self.ready,'alarm':self.alarm};
@@ -110,6 +111,9 @@ def zonePublish(self):
 	value={'id':self.id,'name':self.name,'status':str(self.status.value),'alarm':self.alarm,'fireAlarm':self.fireAlarm};
 	client.publish(mqttTopicRoot+'/zone/'+str(self.id),json.dumps(value),1,True);
 	
+def sigterm_exit(signum, frame):
+		logger.critical('Stop requested by SIGTERM, raising KeyboardInterrupt');
+		raise KeyboardInterrupt;	
 	
 if __name__ == '__main__':
 
@@ -117,61 +121,78 @@ if __name__ == '__main__':
 	logging.config.fileConfig('logging.conf');
 	logger = logging.getLogger(__name__);
 	
-	#Initialisation config
-	config = configparser.ConfigParser()
-	config.read('Paradox2MQTT.conf')
-	serialPort=config.get('Serial','port');
-	baudrate=config.get('Serial','baudrate');
-	logger.info('Serial port configuration: '+serialPort+' baudrate: '+baudrate);
+	#Sigterm trapping
+	signal.signal(signal.SIGTERM, sigterm_exit);
+	
+	try:
+		#Initialisation config
+		config = configparser.ConfigParser()
+		config.read('Paradox2MQTT.conf')
+		serialPort=config.get('Serial','port');
+		baudrate=config.get('Serial','baudrate');
+		logger.info('Serial port configuration: '+serialPort+' baudrate: '+baudrate);
 
-	#MQTT settings
-	mqttBrokerHost=config.get('MQTT','brokerHost');
-	mqttBrokerPort=config.get('MQTT','brokerPort');
-	mqttTopicRoot=config.get('MQTT','topicRoot');
-	logger.info('Broker: '+mqttBrokerHost+' : '+mqttBrokerPort);
-	logger.info('Topic Root: '+mqttTopicRoot);	
+		#MQTT settings
+		mqttBrokerHost=config.get('MQTT','brokerHost');
+		mqttBrokerPort=config.get('MQTT','brokerPort');
+		mqttTopicRoot=config.get('MQTT','topicRoot');
+		logger.info('Broker: '+mqttBrokerHost+' : '+mqttBrokerPort);
+		logger.info('Topic Root: '+mqttTopicRoot);	
 
-	
-	#init panel
-	panel=ParadoxPanel(3,21,9,serialPort,baudrate);
-	PRT3Zone.Zone.onChangeCallback=zonePublish;
-	PRT3Area.Area.onChangeCallback=areaPublish;
-	
-	#init mqtt brooker
-	client = mqtt.Client()
-	client.on_connect = on_connect
-	client.connect_async(mqttBrokerHost, int(mqttBrokerPort))
-	client.message_callback_add(mqttTopicRoot+'/UK/+',utilityKey)
-	client.loop_start()
-	
-	#start loop
-	run=True;
-	while run:
-		#and iterate on panel items
-		for item in itertools.chain(panel.area,panel.zone,panel.user):
-			
-			#check every 10s that all threads are living
-			item.requestRefresh();
-			time.sleep(10);
-			if not item.statusAvailable:
-				logger.warning('Communication seems hang up');
 		
-			#if not
-			if (threading.active_count()!=3):
-				#logging
-				logger.critical(str(threading.active_count())+' thread(s) are living');
-				#disconnect from mqtt server
-				logger.critical('Disonnecting from MQTT broker');
-				client.disconnect();
-				client.loop_stop();
+		#init panel
+		panel=ParadoxPanel(3,21,9,serialPort,baudrate);
+		PRT3Zone.Zone.onChangeCallback=zonePublish;
+		PRT3Area.Area.onChangeCallback=areaPublish;
+		
+		#init mqtt brooker
+		client = mqtt.Client()
+		client.on_connect = on_connect
+		client.connect_async(mqttBrokerHost, int(mqttBrokerPort))
+		client.message_callback_add(mqttTopicRoot+'/UK/+',utilityKey)
+		client.loop_start()
+		
+		#start loop
+		run=True;
+		while run:
+			#and iterate on panel items
+			for item in itertools.chain(panel.area,panel.zone,panel.user):
 				
-				#disconnect from pr3t interface
-				logger.critical('Closing serial port');
-				panel.prt3.port.close();
-				
-				run=False;
-				break;
+				#check every 10s that all threads are living
+				item.requestRefresh();
+				time.sleep(10);
+				if not item.statusAvailable:
+					logger.warning('Communication seems hang up');
 			
+				#if not
+				if (threading.active_count()!=3):
+					#logging
+					logger.critical(str(threading.active_count())+' thread(s) are living');
+					#disconnect from mqtt server
+					logger.critical('Disonnecting from MQTT broker');
+					client.loop_stop();
+					
+					#disconnect from pr3t interface
+					logger.critical('Closing serial port');
+					panel.prt3.port.close();
+					
+					run=False;
+					break;
+					
+	except KeyboardInterrupt:
+		logger.critical('Stopped by KeyboardInterrupt');
+		
+		#disconnect mqtt server
+		logger.critical('Disonnecting from MQTT broker');
+		client.loop_stop();
+				
+		#disconnect from pr3t interface
+		logger.critical('Closing serial port');
+		panel.prt3.port.close();
+	
+	except BaseException as exc:	
+		logger.exception(exc);
+		
 			
 
 
