@@ -38,26 +38,32 @@ class PRT3:
 				try:
 					outer.onReceive(line);
 				except BaseException as exc:
-					outer.logger.exception(exc)
+					outer.logger.exception(exc);
 
 				
 			def connection_made(self, transport):
-				print("Connection established");
+				outer.logger.info("Connection established");
 
 			def connection_lost(self, exc):
-				print("Connection lost");
-				#print(repr(exc));
+				outer.logger.error("Connection lost");
+				if exc is not None:
+					outer.logger.exception(exc);
 
 				
 
 		self.connector = serial.threaded.ReaderThread(self.port,SerialConnector);
 		self.connector.start();
 		self.transport, self.protocol = self.connector.connect();
+		
+	def reconnect(self):
+		self.logger.info('Connection Reconnect');
+		self.transport.close();
+		self.connect();		
 
 	def send(self,line):
 			line_r=line+'\r';
 			self.logger.debug('Sending command: '+line);
-			self.port.write(line_r.encode('cp850'));
+			self.transport.write(line_r.encode('cp850'));
 			return(True);
 
 
