@@ -82,6 +82,9 @@ def on_connect(client, userdata, flags, rc):
 	#loop on zones and pusblish its status
 	for zone in panel.zone:
 			zone.onChangeCallback();
+			
+def on_disconnect(client, userdata, rc):
+	logger.critical('Diconnected from MQTT broker');
 
 def utilityKey(client, userdata, message):
 	logger.info('MQTT message: '+message.topic+':'+str(message.payload))
@@ -148,12 +151,19 @@ if __name__ == '__main__':
 		#init mqtt brooker
 		client = mqtt.Client()
 		client.on_connect = on_connect
+		client.on_disconnect = on_disconnect
+		client.will_set(mqttTopicRoot+'/comStatus',"Offline",1,True)
 		client.connect_async(mqttBrokerHost, int(mqttBrokerPort))
 		client.message_callback_add(mqttTopicRoot+'/UK/+',utilityKey)
 		client.loop_start()
 		
 		#start loop
 		run=True;
+		
+		#com status
+		comStatus=True;
+		errorCounter=0;
+		client.publish(mqttTopicRoot+'/comStatus','OK',1,True);
 		while run:
 			#and iterate on panel items
 			for item in itertools.chain(panel.area,panel.zone,panel.user):
@@ -162,7 +172,19 @@ if __name__ == '__main__':
 				item.requestRefresh();
 				time.sleep(10);
 				if not item.statusAvailable:
-					logger.warning('Communication seems hang up');
+					errorCounter+=1;
+					#with 3 successive error
+					if (errorCounter>=3):
+						if comStatus:
+							client.publish(mqttTopicRoot+'/comStatus','Error',1,True);
+							comStatus=False;
+						panel.prt3.reconnect();
+						
+				else:
+					errorCounter=0;
+					if not comStatus:
+						client.publish(mqttTopicRoot+'/comStatus','OK',1,True);
+						comStatus=True;
 			
 				#if not
 				if (threading.active_count()!=3):
@@ -174,7 +196,7 @@ if __name__ == '__main__':
 					
 					#disconnect from pr3t interface
 					logger.critical('Closing serial port');
-					panel.prt3.port.close();
+					panel.prt3.transport.close();
 					
 					run=False;
 					break;
@@ -188,7 +210,7 @@ if __name__ == '__main__':
 				
 		#disconnect from pr3t interface
 		logger.critical('Closing serial port');
-		panel.prt3.port.close();
+		panel.prt3.transport.close();
 	
 	except BaseException as exc:	
 		logger.exception(exc);
