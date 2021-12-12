@@ -112,7 +112,7 @@ if __name__ == '__main__':
 				
 				#check every 10s that all threads are living
 				item.requestRefresh();
-				time.sleep(10);
+				time.sleep(5);
 				if not item.statusAvailable:
 					errorCounter+=1;
 					#with 3 successive error
@@ -121,13 +121,14 @@ if __name__ == '__main__':
 							client.publish(mqttTopicRoot+'/comStatus','Error',1,True);
 							comStatus=False;
 						panel.prt3.reconnect();
+						errorCounter=0;
 						
 				else:
 					errorCounter=0;
 					if not comStatus:
 						client.publish(mqttTopicRoot+'/comStatus','OK',1,True);
 						comStatus=True;
-			
+				time.sleep(5);
 				#if not
 				if (threading.active_count()!=3):
 					#logging
