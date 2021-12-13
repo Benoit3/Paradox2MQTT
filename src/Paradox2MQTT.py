@@ -110,7 +110,7 @@ if __name__ == '__main__':
 			#and iterate on panel items
 			for item in itertools.chain(panel.area,panel.zone,panel.user):
 				
-				#check every 10s that all threads are living
+				#refresh panel objects, one every 10s
 				item.requestRefresh();
 				time.sleep(5);
 				if not item.statusAvailable:
@@ -129,8 +129,8 @@ if __name__ == '__main__':
 						client.publish(mqttTopicRoot+'/comStatus','OK',1,True);
 						comStatus=True;
 				time.sleep(5);
-				#if not
-				if (threading.active_count()!=3):
+				#check that all threads are living
+				if (threading.active_count() < 3):
 					#logging
 					logger.critical(str(threading.active_count())+' thread(s) are living');
 					#disconnect from mqtt server
