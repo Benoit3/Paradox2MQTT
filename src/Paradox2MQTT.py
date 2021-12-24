@@ -63,7 +63,7 @@ def arm(client, userdata, message):
 			areaId=(int)(matchTopicFilter.groups()[0])
 			if ( 0<areaId and areaId <9) :
 				#arm requested area
-				panel.area[areaId-1].armDisarm(PRT3Area.AreaArmStatus.INSTANTARMED,message.payload.decode('utf-8'));
+				panel.area[areaId-1].armDisarm(PRT3Area.AreaArmStatus.INSTANTARMED,pin);
 				
 	except BaseException as exc:
 		logger.exception(exc);
@@ -83,7 +83,7 @@ def disarm(client, userdata, message):
 			if ( 0<areaId and areaId <9) :
 				#disarm requested area
 				logger.info('try disarm: '+':'+str(areaId))
-				panel.area[areaId-1].armDisarm(PRT3Area.AreaArmStatus.DISARMED,message.payload.decode('utf-8'));
+				panel.area[areaId-1].armDisarm(PRT3Area.AreaArmStatus.DISARMED,pin);
 				
 	except BaseException as exc:
 		logger.exception(exc);
@@ -128,7 +128,11 @@ if __name__ == '__main__':
 
 		
 		#init panel
-		panel=ParadoxPanel.ParadoxPanel(3,21,9,serialPort,baudrate);
+		areaNb=int(config.get('Panel','areaNb'));
+		zoneNb=int(config.get('Panel','zoneNb'));
+		userNb=int(config.get('Panel','userNb'));
+		pin=config.get('Panel','pin');
+		panel=ParadoxPanel.ParadoxPanel(areaNb,zoneNb,userNb,serialPort,baudrate);
 		PRT3Zone.Zone.onChangeCallback=zonePublish;
 		PRT3Area.Area.onChangeCallback=areaPublish;
 		
