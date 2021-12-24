@@ -47,7 +47,6 @@ class Area:
 	def stateLog(self):
 			log='update area : '+str(self.id)+' '+str(self.name)+' Status: '+str(self.status.name)+' Ready: '+str(self.ready)+' Alarm: '+str(self.alarm)+' Memory: '+str(self.memory);
 			self.logger.info(log);
-			print(log);
 		
 	@property
 	def status(self):
@@ -165,16 +164,26 @@ class Area:
 			self.name=matchAreaLabelRequestReply.groups()[1].rstrip();
 			
 			self.logger.info('update area : '+str(self.id)+' Label: '+str(self.name));
-			print('update area : '+str(self.id)+' Label: '+str(self.name));
 			return True;
 
 		#in case of no match
 		else:
 			#return False as reply parsing is OK
 			return False;
-	
 
-
+	def armDisarm(self,cmd,pin):
+		RE_ARM_AREA_PIN = re.compile(r"^(\d{4,6})$");
+		if RE_ARM_AREA_PIN.match(pin):
+			#if disarm request
+			if cmd==AreaArmStatus.DISARMED:
+				self.prt3.send("AD{0:0>3}".format(self.id)+pin);
+				self.logger.info('Send disarm request Area :'+str(self.id));
+			else:
+			#send request to PRT3.
+				self.prt3.send("AA{0:0>3}".format(self.id)+cmd.value+pin);
+				self.logger.info('Send arm request; type :'+str(cmd)+' Area :'+str(self.id));
+		else:
+			self.logger.warning('wrong pin format '+pin);
 
 	
 		

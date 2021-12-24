@@ -79,7 +79,9 @@ AREA_EVENT = {SystemEventGroup.DISARMED_WITH_MASTERCODE,
 	SystemEventGroup.ZONE_IN_ALARM,
 	SystemEventGroup.FIRE_ALARM,
 	SystemEventGroup.ZONE_ALARM_RESTORE,
-	SystemEventGroup.FIRE_ALARM_RESTORE		
+	SystemEventGroup.FIRE_ALARM_RESTORE,
+	SystemEventGroup.STATUS1,
+	SystemEventGroup.STATUS2
 	}
 
 class Event(object):
@@ -91,22 +93,20 @@ class Event(object):
         return "Group '%s' Number '%s' Area '%s'" % (self.group, self.number, self.area)
     
 def interprete(line):
-    event_to_return = Event()
-
+	event_to_return = Event();
     #system event handling
-    matchSystemEvent = RE_SYSTEM_EVENT.match(line)
-    if matchSystemEvent:
-        group, number, area = matchSystemEvent.groups()
-        group = int(group)
-        number = int(number)
-        area = int(area)
+	matchSystemEvent = RE_SYSTEM_EVENT.match(line)
+	if matchSystemEvent:
+		group, number, area = matchSystemEvent.groups()
+		group = int(group)
+		number = int(number)
+		area = int(area)
+		if not SystemEventGroup.has_value(group):
+			return None
 
-        if not SystemEventGroup.has_value(group):
-            return None
+		event_to_return.group = group
+		event_to_return.number = number
+		event_to_return.area = area
+		return { event_to_return }
 
-        event_to_return.group = group
-        event_to_return.number = number
-        event_to_return.area = area
-        return { event_to_return }
-
-    return None
+	return None

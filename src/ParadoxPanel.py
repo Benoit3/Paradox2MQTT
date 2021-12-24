@@ -39,25 +39,31 @@ class ParadoxPanel:
 			pass
 		elif (PRT3User.User.processPRT3Reply(self.user,strData)):
 			pass
-				
 		elif (events == None):
 			print("Received [{0}] unhandled message".format(strData.replace("\r", "<cr>")))
 		else :
 			self.EventUpdateDevice(events)
 			
 	def EventUpdateDevice(self,events):
-
-
 		for event in events :
 			#area to be refreshed
 			if (event.group in PRT3Event.AREA_EVENT):
 				#warning area i is at index i-1 in the list
-				self.area[event.area-1].requestRefreshStatus();
-				
+				try:
+					self.area[event.area-1].requestRefreshStatus();
+				except IndexError:
+					self.logger.warning('Area id error: '+str(index));	
+
 			#zone to be refreshed
 			if (event.group in PRT3Event.ZONE_EVENT):
 				#warning area i is at index i-1 in the list
-				self.area[event.area-1].requestRefreshStatus();
+				try:
+					self.area[event.area-1].requestRefreshStatus();
+				except IndexError:
+					self.logger.warning('Area id error: '+str(event.area));
+					
 				#warning zone i is at index i-1 in the list
-				self.zone[event.number-1].requestRefreshStatus();
-		return            
+				try:
+					self.zone[event.number-1].requestRefreshStatus();
+				except IndexError:
+					self.logger.warning('Zone id error: '+str(event.number));        

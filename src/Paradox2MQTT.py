@@ -16,6 +16,8 @@ import re
 def on_connect(client, userdata, flags, rc):
 	#subscribe to Utility Key messages with Q0s of 2
 	client.subscribe(mqttTopicRoot+'/UK/+',2);
+	client.subscribe(mqttTopicRoot+'/area/+/arm',2);
+	client.subscribe(mqttTopicRoot+'/area/+/disarm',2);
 	logger.info('Connected to MQTT broker');
 	
 	#loop on areas and pusblish its status
@@ -29,7 +31,7 @@ def on_disconnect(client, userdata, rc):
 	logger.critical('Diconnected from MQTT broker');
 
 def utilityKey(client, userdata, message):
-	logger.info('MQTT message: '+message.topic+':'+str(message.payload))
+	logger.info('IK MQTT message: '+message.topic+':'+str(message.payload))
 	
 	#to get traceback in case of error in the mqtt thread
 	try:
@@ -43,6 +45,45 @@ def utilityKey(client, userdata, message):
 			if ( 0<UkId and UkId <251) :
 				#activate requested Utility Key
 				panel.utilityKey.activate(UkId);
+				
+	except BaseException as exc:
+		logger.exception(exc);
+		
+def arm(client, userdata, message):
+	logger.info('Arm MQTT message: '+message.topic+':'+str(message.payload))
+	
+	#to get traceback in case of error in the mqtt thread
+	try:
+		#check message structure and get area to arm id
+		RE_TOPIC_FILTER = re.compile(mqttTopicRoot+r"/area/(\d)/arm");
+		matchTopicFilter = RE_TOPIC_FILTER.match(message.topic);
+
+		#if the area id is correct
+		if (matchTopicFilter):
+			areaId=(int)(matchTopicFilter.groups()[0])
+			if ( 0<areaId and areaId <9) :
+				#arm requested area
+				panel.area[areaId-1].armDisarm(PRT3Area.AreaArmStatus.INSTANTARMED,message.payload.decode('utf-8'));
+				
+	except BaseException as exc:
+		logger.exception(exc);
+		
+def disarm(client, userdata, message):
+	logger.info('Disarm MQTT message: '+message.topic+':'+str(message.payload))
+	
+	#to get traceback in case of error in the mqtt thread
+	try:
+		#check message structure and get area to disarm id
+		RE_TOPIC_FILTER = re.compile(mqttTopicRoot+r"/area/(\d)/disarm");
+		matchTopicFilter = RE_TOPIC_FILTER.match(message.topic);
+
+		#if the area id is correct
+		if (matchTopicFilter):
+			areaId=(int)(matchTopicFilter.groups()[0])
+			if ( 0<areaId and areaId <9) :
+				#disarm requested area
+				logger.info('try disarm: '+':'+str(areaId))
+				panel.area[areaId-1].armDisarm(PRT3Area.AreaArmStatus.DISARMED,message.payload.decode('utf-8'));
 				
 	except BaseException as exc:
 		logger.exception(exc);
@@ -82,7 +123,8 @@ if __name__ == '__main__':
 		mqttBrokerPort=config.get('MQTT','brokerPort');
 		mqttTopicRoot=config.get('MQTT','topicRoot');
 		logger.info('Broker: '+mqttBrokerHost+' : '+mqttBrokerPort);
-		logger.info('Topic Root: '+mqttTopicRoot);	
+		logger.info('Topic Root: '+mqttTopicRoot);
+		
 
 		
 		#init panel
@@ -97,6 +139,8 @@ if __name__ == '__main__':
 		client.will_set(mqttTopicRoot+'/comStatus',"Offline",1,True)
 		client.connect_async(mqttBrokerHost, int(mqttBrokerPort))
 		client.message_callback_add(mqttTopicRoot+'/UK/+',utilityKey)
+		client.message_callback_add(mqttTopicRoot+'/area/+/arm',arm)
+		client.message_callback_add(mqttTopicRoot+'/area/+/disarm',disarm)
 		client.loop_start()
 		
 		#start loop
