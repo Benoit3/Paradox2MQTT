@@ -16,8 +16,7 @@ import re
 def on_connect(client, userdata, flags, rc):
 	#subscribe to Utility Key messages with Q0s of 2
 	client.subscribe(mqttTopicRoot+'/UK/+',2);
-	client.subscribe(mqttTopicRoot+'/area/+/arm',2);
-	client.subscribe(mqttTopicRoot+'/area/+/disarm',2);
+	client.subscribe(mqttTopicRoot+'/area/+/set',2);
 	logger.info('Connected to MQTT broker');
 	
 	#loop on areas and pusblish its status
@@ -55,35 +54,21 @@ def arm(client, userdata, message):
 	#to get traceback in case of error in the mqtt thread
 	try:
 		#check message structure and get area to arm id
-		RE_TOPIC_FILTER = re.compile(mqttTopicRoot+r"/area/(\d)/arm");
+		RE_TOPIC_FILTER = re.compile(mqttTopicRoot+r"/area/(\d)/set");
 		matchTopicFilter = RE_TOPIC_FILTER.match(message.topic);
 
 		#if the area id is correct
 		if (matchTopicFilter):
 			areaId=(int)(matchTopicFilter.groups()[0])
+			#get requested status
+			try:
+				cmd=PRT3Area.AreaArmStatus(message.payload.decode('UTF-8'));
+			except ValueError:
+				logger.warning('unknown Area arm request :' + message.payload.decode('UTF-8'))
+				return
 			if ( 0<areaId and areaId <9) :
 				#arm requested area
-				panel.area[areaId-1].armDisarm(PRT3Area.AreaArmStatus.INSTANTARMED,pin);
-				
-	except BaseException as exc:
-		logger.exception(exc);
-		
-def disarm(client, userdata, message):
-	logger.info('Disarm MQTT message: '+message.topic+':'+str(message.payload))
-	
-	#to get traceback in case of error in the mqtt thread
-	try:
-		#check message structure and get area to disarm id
-		RE_TOPIC_FILTER = re.compile(mqttTopicRoot+r"/area/(\d)/disarm");
-		matchTopicFilter = RE_TOPIC_FILTER.match(message.topic);
-
-		#if the area id is correct
-		if (matchTopicFilter):
-			areaId=(int)(matchTopicFilter.groups()[0])
-			if ( 0<areaId and areaId <9) :
-				#disarm requested area
-				logger.info('try disarm: '+':'+str(areaId))
-				panel.area[areaId-1].armDisarm(PRT3Area.AreaArmStatus.DISARMED,pin);
+				panel.area[areaId-1].armDisarm(cmd,pin);
 				
 	except BaseException as exc:
 		logger.exception(exc);
@@ -143,8 +128,7 @@ if __name__ == '__main__':
 		client.will_set(mqttTopicRoot+'/comStatus',"Offline",1,True)
 		client.connect_async(mqttBrokerHost, int(mqttBrokerPort))
 		client.message_callback_add(mqttTopicRoot+'/UK/+',utilityKey)
-		client.message_callback_add(mqttTopicRoot+'/area/+/arm',arm)
-		client.message_callback_add(mqttTopicRoot+'/area/+/disarm',disarm)
+		client.message_callback_add(mqttTopicRoot+'/area/+/set',arm)
 		client.loop_start()
 		
 		#start loop
