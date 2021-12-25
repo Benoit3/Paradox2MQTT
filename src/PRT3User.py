@@ -75,7 +75,6 @@ class User:
 			
 			self.name=matchUserLabelRequestReply.groups()[1].rstrip();
 			self.logger.info('update User : '+str(self.id)+' Label: '+self.name);
-			print('update User : '+str(self.id)+' Label: '+self.name);
 			
 			#flag status as available
 			self.statusAvailable=True;

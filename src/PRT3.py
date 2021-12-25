@@ -42,10 +42,10 @@ class PRT3:
 
 				
 			def connection_made(self, transport):
-				outer.logger.info("Connection established");
+				outer.logger.critical("Connection established");
 
 			def connection_lost(self, exc):
-				outer.logger.error("Connection lost");
+				outer.logger.critical("Connection lost");
 				if exc is not None:
 					outer.logger.exception(exc);
 
@@ -56,7 +56,7 @@ class PRT3:
 		self.transport, self.protocol = self.connector.connect();
 		
 	def reconnect(self):
-		self.logger.info('Connection Reconnect');
+		self.logger.critical('Connection Reconnect');
 		self.transport.close();
 		self.connect();		
 

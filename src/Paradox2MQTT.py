@@ -17,7 +17,7 @@ def on_connect(client, userdata, flags, rc):
 	#subscribe to Utility Key messages with Q0s of 2
 	client.subscribe(mqttTopicRoot+'/UK/+',2);
 	client.subscribe(mqttTopicRoot+'/area/+/set',2);
-	logger.info('Connected to MQTT broker');
+	logger.critical('Connected to MQTT broker');
 	
 	#loop on areas and pusblish its status
 	for area in panel.area:
@@ -101,14 +101,14 @@ if __name__ == '__main__':
 		config.read('Paradox2MQTT.conf')
 		serialPort=config.get('Serial','port');
 		baudrate=config.get('Serial','baudrate');
-		logger.info('Serial port configuration: '+serialPort+' baudrate: '+baudrate);
+		logger.critical('Serial port configuration: '+serialPort+' baudrate: '+baudrate);
 
 		#MQTT settings
 		mqttBrokerHost=config.get('MQTT','brokerHost');
 		mqttBrokerPort=config.get('MQTT','brokerPort');
 		mqttTopicRoot=config.get('MQTT','topicRoot');
-		logger.info('Broker: '+mqttBrokerHost+' : '+mqttBrokerPort);
-		logger.info('Topic Root: '+mqttTopicRoot);
+		logger.critical('Broker: '+mqttBrokerHost+' : '+mqttBrokerPort);
+		logger.critical('Topic Root: '+mqttTopicRoot);
 		
 
 		

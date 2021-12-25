@@ -46,7 +46,6 @@ class Zone:
 	def log(self):
 			txt='update zone : '+str(self.id)+' '+str(self.name)+' Status: '+str(self.status.name)+' Alarm: '+str(self.alarm)+' FireAlarm: '+str(self.fireAlarm);
 			self.logger.info(txt);
-			print(txt);
 						
 	@property
 	def status(self):
@@ -156,7 +155,6 @@ class Zone:
 		elif (matchZoneLabelRequestReply and ((int)(matchZoneLabelRequestReply.groups()[0])==self.id)):
 			self.name=matchZoneLabelRequestReply.groups()[1].rstrip();
 			self.logger.info('update zone : '+str(self.id)+' Label: '+str(self.name));
-			print('update zone : '+str(self.id)+' Label: '+str(self.name));
 			return True;
 		
 		#in case of no match
