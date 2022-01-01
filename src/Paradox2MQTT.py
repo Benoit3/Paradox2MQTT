@@ -73,14 +73,20 @@ def arm(client, userdata, message):
 	except BaseException as exc:
 		logger.exception(exc);
 
+def publish(topic,payload):
+	#if the topic is not in the cache or payload need to be updated
+	if ((topic not in mqttCache) or (mqttCache[topic]['payload']!=payload)):
+			mqttCache[topic]={'payload':payload};
+			client.publish(mqttTopicRoot+topic,payload,1,True);
+
 def areaPublish(self):
 	value={'id':self.id,'name':self.name,'status':str(self.status.value),'memory':self.memory,'trouble':self.trouble,'ready':self.ready,'alarm':self.alarm};
-	client.publish(mqttTopicRoot+'/area/'+str(self.id),json.dumps(value),1,True);
+	publish('/area/'+str(self.id),json.dumps(value));
 	
    
 def zonePublish(self):
 	value={'id':self.id,'name':self.name,'status':str(self.status.value),'alarm':self.alarm,'fireAlarm':self.fireAlarm};
-	client.publish(mqttTopicRoot+'/zone/'+str(self.id),json.dumps(value),1,True);
+	publish('/zone/'+str(self.id),json.dumps(value));
 	
 def sigterm_exit(signum, frame):
 		logger.critical('Stop requested by SIGTERM, raising KeyboardInterrupt');
@@ -94,6 +100,9 @@ if __name__ == '__main__':
 	
 	#Sigterm trapping
 	signal.signal(signal.SIGTERM, sigterm_exit);
+	
+	#MQTT message cache creation
+	mqttCache=dict();
 	
 	try:
 		#Initialisation config
