@@ -13,9 +13,15 @@ To test and run it:
 
 
 To run as a service on raspbian:
+
 as root, copy and adapt Paradox2MQTT.service to /etc/systemd/system/ directory
+
 sudo chmod 644 /etc/systemd/system/Paradox2MQTT.service
+
 chmod +x /home/pi/Diematic32MQTT/Paradox2MQTT.py
+
 sudo systemctl daemon-reload
+
 sudo systemctl enable Paradox2MQTT.service
+
 sudo systemctl start Paradox2MQTT.service
